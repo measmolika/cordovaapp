@@ -1,0 +1,95 @@
+<button onclick="askPermission()">Ask Permission</button>
+<button onclick="recordVideo()">REC</button>
+<button onclick="stopRecordVideo()">STOP</button>
+<button onclick="download()">Download</button>
+<button onclick="playVideo()">Play</button>
+<button onclick="pauseVideo()">Pause</button>
+
+
+<div>
+<video  id="live-video" muted="muted" autoplay controls></video>
+</div>
+
+<div>
+<video id="stream" autoplay controls></video>
+</div>
+
+<script src="recordrtc.js"></script>
+<script src="cordova.js"></script>
+<script type="text/javascript">
+
+function askPermission() {
+
+  var permissions = cordova.plugins.permissions;
+  permissions.requestPermission(permissions.RECORD_AUDIO, success, error);
+  permissions.requestPermission(permissions.CAMERA, success, error);
+}
+ 
+function error() {
+  console.warn('Camera permission is not turned on');
+}
+ 
+function success( status ) {
+  if( !status.hasPermission ) error();
+}
+
+var liveVideo = document.getElementById('live-video');
+var videoStream = document.getElementById("stream");
+var recordRTC;
+
+function captureCamera(callback) {
+  console.log("captureCamera called=======");
+  var audioOpts = {
+    autoGainControl: window['useAutoGain'] || false,
+    noiseSuppression: window['useNoiseSuppression'] || false,
+    echoCancellation: window['useEchoCancellation'] || false
+  };
+  navigator.getUserMedia({ audio: audioOpts, video: true }, 
+    function (camera) {console.log(camera);
+      callback(camera);  },
+    function (err) { console.log("playAudio():Audio Error: " + err);}
+  );
+}
+
+function stopRecordingCallback() {
+  videoStream.muted = false;
+  videoStream.volume = 1;
+  videoStream.src = URL.createObjectURL(recordRTC.getBlob());
+  recordRTC.camera.getVideoTracks()[0].stop();   
+}
+
+function recordVideo() {
+  this.disabled = true;
+  captureCamera(function(camera) {
+    console.log("captureCamera inside recordVideo called");
+    //liveVideo.muted = true;
+    //liveVideo.volume = 0;
+    liveVideo.srcObject = camera;
+    recordRTC = RecordRTC(camera, {
+		            type: 'video;codecs=h264',
+		            mimeType: 'video/webm'
+		        });
+    console.log(camera.getAudioTracks());
+    recordRTC.startRecording();
+    // release camera on stopRecording	
+    recordRTC.camera = camera;   
+  });
+};
+
+function stopRecordVideo() {
+  recordRTC.stopRecording(stopRecordingCallback);
+}
+
+function download() {
+  invokeSaveAsDialog(recordRTC.getBlob(),'recording_h264.webm');
+}
+
+function playVideo() {
+  videoStream.play();
+}
+
+function pauseVideo() {
+  videoStream.pause();
+}
+
+</script>
